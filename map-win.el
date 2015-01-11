@@ -11,9 +11,9 @@
 ;; LCD Archive Entry:
 ;; map-win-popup|Noah Friedman|friedman@prep.ai.mit.edu|
 ;; ensure display of a process buffer when new output arrives|
-;; $Date: 1995/03/25 08:47:43 $|$Revision: 1.1 $|~/functions/map-win.el.gz|
+;; $Date: 2013/07/02 18:53:23 $|$Revision: 1.2 $|~/functions/map-win.el.gz|
 
-;; $Id: map-win.el,v 1.1 1995/03/25 08:47:43 friedman Exp $
+;; $Id: map-win.el,v 1.2 2013/07/02 18:53:23 friedman Exp $
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,9 +26,7 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with this program; if not, you can either send email to this
-;; program's maintainer or write to: The Free Software Foundation,
-;; Inc.; 675 Massachusetts Avenue; Cambridge, MA 02139, USA.
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -39,8 +37,6 @@
 ;; traverse.
 
 ;;; Code:
-
-(require 'backquote)
 
 ;;; Ensure smooth operation in both Emacs and XEmacs/Lucid.
 ;;; These are defined here before any macros are used so that macro
@@ -93,69 +89,68 @@ values; just return `nil'."
         (done (make-symbol "$done$"))
         (result (make-symbol "$result$"))
         (result-list (make-symbol "$result-list$")))
-    (` (let* (((, orig-window) (selected-window))
-              ((, this-window) (, orig-window))
-              ((, orig-buffer) (current-buffer))
-              ((, orig-frame) (and (fboundp 'map-win-selected-frame)
-                                   (map-win-selected-frame)))
-              (, done)
-              (, result)
-              (, result-list))
+    `(let* ((,orig-window (selected-window))
+            (,this-window ,orig-window)
+            (,orig-buffer (current-buffer))
+            (,orig-frame (and (fboundp 'map-win-selected-frame)
+                              (map-win-selected-frame)))
+            ,done
+            ,result
+            ,result-list)
 
-         ;; next-window can't be told to search a specific frame; it either
-         ;; searches some subset of all visible or iconified frames, or the
-         ;; selected frame.  So if the frames argument is a frame object,
-         ;; just cycle through the windows on that frame.
-         (,@ (and (fboundp 'map-win-framep)
-                  (` ((cond
-                       ((and (map-win-framep (, orig-frame))
-                             (map-win-framep (, frames)))
-                        (map-win-select-frame (, frames))
-                        (setq (, orig-window)
-                              (select-window (map-win-frame-first-window)))
-                        (setq (, this-window) (, orig-window))))))))
+       ;; next-window can't be told to search a specific frame; it either
+       ;; searches some subset of all visible or iconified frames, or the
+       ;; selected frame.  So if the frames argument is a frame object,
+       ;; just cycle through the windows on that frame.
+       ,@(and (fboundp 'map-win-framep)
+              `((cond
+                 ((and (map-win-framep ,orig-frame)
+                       (map-win-framep ,frames))
+                  (map-win-select-frame ,frames)
+                  (setq ,orig-window
+                        (select-window (map-win-frame-first-window)))
+                  (setq ,this-window ,orig-window)))))
 
-         ;; If starting from a minibuffer window, make sure to get back.
-         (and (eq (, this-window) (minibuffer-window))
-              (setq minibuffers t))
+       ;; If starting from a minibuffer window, make sure to get back.
+       (and (eq ,this-window (minibuffer-window))
+            (setq minibuffers t))
 
-         (while (not (, done))
-           (select-window (, this-window))
-           (set-buffer (window-buffer (, this-window)))
-           (setq (, result)
-                 (, (cond
-                     ((and (listp body)
-                           (memq (car body) '(function lambda)))
-                      (` (funcall (, body))))
-                     (t body))))
-           (,@ (and save-resultp
-                    (` ((setq (, result-list)
-                              (cons (, result) (, result-list)))))))
-           (setq (, this-window)
-                 (next-window (, this-window)
-                              (, minibuffers)
-                              (,@ (and (fboundp 'map-win-make-frame)
-                                       frames
-                                       (list frames)))))
-           (and (eq (, this-window) (, orig-window))
-                (setq (, done) t)))
+       (while (not ,done)
+         (select-window ,this-window)
+         (set-buffer (window-buffer ,this-window))
+         (setq ,result
+               ,(cond
+                 ((and (listp body)
+                       (memq (car body) '(function lambda)))
+                  `(funcall ,body))
+                 (t body)))
+         ,@(and save-resultp
+                `((setq ,result-list
+                        (cons ,result ,result-list))))
+         (setq ,this-window
+               (next-window ,this-window
+                            ,minibuffers
+                            ,@(and (fboundp 'map-win-make-frame)
+                                   frames
+                                   (list frames))))
+         (and (eq ,this-window ,orig-window)
+              (setq ,done t)))
 
-         ;; Restore original frame if changed.
-         (,@ (and (fboundp 'map-win-framep)
-                  (` ((cond
-                       ((and (map-win-framep (, orig-frame))
-                             (map-win-framep (, frames)))
-                        (map-win-select-frame (, orig-frame))))))))
+       ;; Restore original frame if changed.
+       ,@(and (fboundp 'map-win-framep)
+              `((cond
+                 ((and (map-win-framep ,orig-frame)
+                       (map-win-framep ,frames))
+                  (map-win-select-frame ,orig-frame)))))
 
-         (set-buffer (, orig-buffer))
+       (set-buffer ,orig-buffer)
 
-         (, (and save-resultp
-                 (` (nreverse (, result-list)))))))))
+       ,(and save-resultp
+             `(nreverse ,result-list)))))
 
 ;; This gives map-windows the same indentation style as save-excursion.
 (put 'map-windows 'lisp-indent-function 0)
 
-
 (provide 'map-win)
 
 ;; map-win.el ends here
